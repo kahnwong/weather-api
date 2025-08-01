@@ -2,9 +2,7 @@ package main
 
 import (
 	"encoding/base64"
-	"fmt"
 	"log"
-	"os"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -27,11 +25,9 @@ func TitleGetController(c *fiber.Ctx) error {
 }
 
 func PngGetController(c *fiber.Ctx) error {
-	filePath := "./images/qrcode.png"
-	imageData, err := os.ReadFile(filePath)
+	qrcode, err := Qrcode.GetImage(1)
 	if err != nil {
-		log.Printf("Error reading image file '%s': %v", filePath, err)
-		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Image '%s' not found or could not be read.", filePath))
+		return c.Status(fiber.StatusNotFound).SendString("Error obtaining qrcode data")
 	}
 
 	// because for some reason garmin sdk can't forward header on image request
@@ -41,7 +37,7 @@ func PngGetController(c *fiber.Ctx) error {
 	}
 
 	c.Type("png")
-	return c.Send(imageData)
+	return c.Send(qrcode.Image)
 }
 
 func AddPostController(c *fiber.Ctx) error {
