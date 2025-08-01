@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/jmoiron/sqlx"
@@ -11,6 +12,22 @@ var Qrcode *Application
 
 type Application struct {
 	DB *sqlx.DB
+}
+
+type QrcodeItem struct {
+	ID    int    `db:"id"`
+	Title string `db:"title"` // 0 for false, 1 for true
+	Image []byte `db:"image"`
+}
+
+func (Qrcode *Application) Add(qrcode QrcodeItem) error {
+	query := `INSERT OR REPLACE INTO qrcode (id, title, image) VALUES (?, ?, ?)`
+	_, err := Qrcode.DB.Exec(query, qrcode.ID, qrcode.Title, qrcode.Image)
+	if err != nil {
+		return fmt.Errorf("error inserting activity for qrcode: '%s' - %w", qrcode.Title, err)
+	}
+
+	return nil
 }
 
 func init() {
@@ -26,4 +43,17 @@ func init() {
 		DB: initDB(),
 	}
 	Qrcode.InitSchema(dbExists)
+
+	// test
+	filePath := "./assets/qrcode.png"
+	imageData, _ := os.ReadFile(filePath)
+
+	err := Qrcode.Add(QrcodeItem{
+		ID:    1,
+		Title: "Foo",
+		Image: imageData,
+	})
+	if err != nil {
+		return
+	}
 }
