@@ -27,6 +27,12 @@ func GetPngController(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Image '%s' not found or could not be read.", filePath))
 	}
 
+	// because for some reason garmin sdk can't forward header on image request
+	reqApiKey := c.Query("apiKey")
+	if reqApiKey != apiKey {
+		return c.SendString("Nope")
+	}
+
 	c.Type("png")
 	return c.Send(imageData)
 }

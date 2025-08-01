@@ -1,2 +1,1 @@
-GET http://localhost:3000/images/qrcode.png
-X-Api-Key: {{QRCODE_API_KEY}}
+GET http://localhost:3000/images/qrcode.png?apiKey={{QRCODE_API_KEY}}
