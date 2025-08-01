@@ -2,7 +2,11 @@ module github.com/kahnwong/qrcode-api
 
 go 1.24.3
 
-require github.com/gofiber/fiber/v2 v2.52.9
+require (
+	github.com/gofiber/contrib/fiberzerolog v1.0.3
+	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/rs/zerolog v1.34.0
+)
 
 require (
 	github.com/andybalholm/brotli v1.1.0 // indirect

@@ -2,6 +2,10 @@
 
 TODO
 
+## Notes
+
+- PNG should be around 4KB, otherwise garmin sdk might bork.
+
 ## Usage
 
 ```bash
