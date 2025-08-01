@@ -4,7 +4,7 @@ var tableSchemas = map[string]string{
 	"qrcode": `
 	CREATE TABLE qrcode (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT,
+	name TEXT,
     image BLOB
 );`,
 }
@@ -12,7 +12,7 @@ var tableSchemas = map[string]string{
 var allExpectedColumns = map[string]map[string]string{
 	"qrcode": {
 		"id":    "INTEGER",
-		"title": "TEXT",
+		"name":  "TEXT",
 		"image": "BLOB",
 	},
 }

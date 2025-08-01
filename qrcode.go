@@ -16,15 +16,15 @@ type Application struct {
 
 type QrcodeItem struct {
 	ID    int    `db:"id"`
-	Title string `db:"title"` // 0 for false, 1 for true
+	Name  string `db:"name"` // 0 for false, 1 for true
 	Image []byte `db:"image"`
 }
 
 func (Qrcode *Application) Add(qrcode QrcodeItem) error {
-	query := `INSERT OR REPLACE INTO qrcode (id, title, image) VALUES (?, ?, ?)`
-	_, err := Qrcode.DB.Exec(query, qrcode.ID, qrcode.Title, qrcode.Image)
+	query := `INSERT OR REPLACE INTO qrcode (id, name, image) VALUES (?, ?, ?)`
+	_, err := Qrcode.DB.Exec(query, qrcode.ID, qrcode.Name, qrcode.Image)
 	if err != nil {
-		return fmt.Errorf("error inserting activity for qrcode: '%s' - %w", qrcode.Title, err)
+		return fmt.Errorf("error inserting activity for qrcode: '%s' - %w", qrcode.Name, err)
 	}
 
 	return nil
@@ -50,7 +50,7 @@ func init() {
 
 	err := Qrcode.Add(QrcodeItem{
 		ID:    1,
-		Title: "Foo",
+		Name:  "Foo",
 		Image: imageData,
 	})
 	if err != nil {
