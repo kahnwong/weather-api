@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
-	"log"
+	"image/png"
+
+	"github.com/nfnt/resize"
+	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -48,7 +52,7 @@ func AddPostController(c *fiber.Ctx) error {
 	// parse request
 	p := new(QrcodeRequestItem)
 	if err := c.BodyParser(p); err != nil {
-		log.Printf("Error parsing request body: %v", err)
+		log.Error().Err(err).Msg("Error parsing request body")
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Cannot parse JSON request body",
 		})
@@ -58,13 +62,28 @@ func AddPostController(c *fiber.Ctx) error {
 	//// Decode the Base64 string to a byte slice
 	imageBytes, err := base64.StdEncoding.DecodeString(p.Image)
 	if err != nil {
-		log.Fatalf("Error decoding Base64 string: %v", err)
+		log.Error().Err(err).Msg("Error decoding base64 image")
 	}
 
+	//// resize to 90x90 so garmin doesn't choke
+	img, err := png.Decode(bytes.NewReader(imageBytes))
+	if err != nil {
+		log.Error().Err(err).Msg("failed to decode PNG image")
+	}
+	resizedImg := resize.Resize(90, 90, img, resize.Lanczos3)
+
+	//// encode back to bytes
+	var buf bytes.Buffer
+	err = png.Encode(&buf, resizedImg)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to encode resized PNG image")
+	}
+
+	//// insert to db
 	err = Qrcode.Add(QrcodeItem{
 		ID:    p.ID,
 		Name:  p.Name,
-		Image: imageBytes,
+		Image: buf.Bytes(),
 	})
 	if err != nil {
 		log.Printf("Error adding image: %v", err)
