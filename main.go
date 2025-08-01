@@ -52,6 +52,7 @@ func main() {
 
 	// routes
 	app.Get("/title", GetTitleController)
+	app.Get("/png", GetPngController)
 
 	// start server
 	err := app.Listen(os.Getenv("LISTEN_ADDR"))
