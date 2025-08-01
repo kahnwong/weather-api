@@ -8,8 +8,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+type Title struct {
+	Name string `json:"name"`
+}
+
 func GetTitleController(c *fiber.Ctx) error {
-	return c.SendString("Todo")
+	title := Title{
+		Name: "Foo",
+	}
+	return c.JSON(title)
 }
 
 func GetPngController(c *fiber.Ctx) error {
