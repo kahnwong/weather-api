@@ -1,14 +1,19 @@
-package main
+package qrcode
 
 import (
 	"bytes"
 	"encoding/base64"
 	"image/png"
+	"os"
 
 	"github.com/nfnt/resize"
 	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
+)
+
+var (
+	apiKey = os.Getenv("QRCODE_API_KEY")
 )
 
 type TitleResponse struct {

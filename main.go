@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/gofiber/contrib/fiberzerolog"
+	"github.com/kahnwong/qrcode-api/qrcode"
 	"github.com/rs/zerolog"
 
 	"github.com/gofiber/fiber/v2"
@@ -62,9 +63,9 @@ func main() {
 	}))
 
 	// routes
-	app.Get("/title", TitleGetController)
-	app.Get("/images/qrcode.png:apiKey?", PngGetController)
-	app.Post("/add", AddPostController)
+	app.Get("/title", qrcode.TitleGetController)
+	app.Get("/images/qrcode.png:apiKey?", qrcode.PngGetController)
+	app.Post("/add", qrcode.AddPostController)
 
 	// start server
 	err := app.Listen(os.Getenv("LISTEN_ADDR"))

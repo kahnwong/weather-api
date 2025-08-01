@@ -6,7 +6,7 @@ RUN apk add --no-cache build-base
 
 COPY go.mod go.sum ./
 RUN go mod download
-
+COPY qrcode ./qrcode
 COPY *.go ./
 
 RUN CGO_ENABLED=1 go build -ldflags "-w -s" -o /qrcode-api

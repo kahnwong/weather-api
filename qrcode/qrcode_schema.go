@@ -1,4 +1,4 @@
-package main
+package qrcode
 
 var tableSchemas = map[string]string{
 	"qrcode": `
