@@ -2,9 +2,6 @@
 
 So I don't have to fish out my phone to scan event entry qrcode.
 
-## Notes
-
-- PNG should be around 4KB, otherwise garmin sdk might bork.
 
 ## Usage
 
