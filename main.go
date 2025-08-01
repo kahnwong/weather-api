@@ -18,6 +18,7 @@ import (
 var (
 	apiKey        = os.Getenv("QRCODE_API_KEY")
 	protectedURLs = []*regexp.Regexp{
+		regexp.MustCompile("^/add$"),
 		regexp.MustCompile("^/title$"),
 	}
 )
@@ -61,8 +62,9 @@ func main() {
 	}))
 
 	// routes
-	app.Get("/title", GetTitleController)
-	app.Get("/images/qrcode.png:apiKey?", GetPngController)
+	app.Get("/title", TitleGetController)
+	app.Get("/images/qrcode.png:apiKey?", PngGetController)
+	app.Post("/add", AddPostController)
 
 	// start server
 	err := app.Listen(os.Getenv("LISTEN_ADDR"))

@@ -16,7 +16,7 @@ type Application struct {
 
 type QrcodeItem struct {
 	ID    int    `db:"id"`
-	Name  string `db:"name"` // 0 for false, 1 for true
+	Name  string `db:"name"`
 	Image []byte `db:"image"`
 }
 
@@ -43,17 +43,4 @@ func init() {
 		DB: initDB(),
 	}
 	Qrcode.InitSchema(dbExists)
-
-	// test
-	filePath := "./assets/qrcode.png"
-	imageData, _ := os.ReadFile(filePath)
-
-	err := Qrcode.Add(QrcodeItem{
-		ID:    1,
-		Name:  "Foo",
-		Image: imageData,
-	})
-	if err != nil {
-		return
-	}
 }
