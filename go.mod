@@ -5,6 +5,8 @@ go 1.24.3
 require (
 	github.com/gofiber/contrib/fiberzerolog v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/jmoiron/sqlx v1.4.0
+	github.com/mattn/go-sqlite3 v1.14.30
 	github.com/rs/zerolog v1.34.0
 )
 

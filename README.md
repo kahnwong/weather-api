@@ -1,6 +1,6 @@
 # qrcode-api
 
-TODO
+So I don't have to fish out my phone to scan event entry qrcode.
 
 ## Notes
 
