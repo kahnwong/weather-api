@@ -7,7 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-type Title struct {
+type TitleResponse struct {
 	Name string `json:"name"`
 }
 
@@ -18,10 +18,14 @@ type QrcodeRequestItem struct {
 }
 
 func TitleGetController(c *fiber.Ctx) error {
-	title := Title{
-		Name: "Foo",
+	qrcode, err := Qrcode.GetTitle(1)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).SendString("Error obtaining qrcode data")
 	}
-	return c.JSON(title)
+
+	return c.JSON(TitleResponse{
+		Name: qrcode.Name,
+	})
 }
 
 func PngGetController(c *fiber.Ctx) error {

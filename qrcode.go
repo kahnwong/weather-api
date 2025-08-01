@@ -31,6 +31,19 @@ func (Qrcode *Application) Add(qrcode QrcodeItem) error {
 	return nil
 }
 
+func (Qrcode *Application) GetTitle(id int) (*QrcodeItem, error) {
+	query := `SELECT id, name FROM qrcode WHERE id = ?`
+	var qrcodeItem QrcodeItem
+	err := Qrcode.DB.Get(&qrcodeItem, query, id)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("qrcode with ID '%d' not found", id)
+		}
+		return nil, fmt.Errorf("error getting qrcode by ID '%d': %w", id, err)
+	}
+
+	return &qrcodeItem, nil
+}
 func (Qrcode *Application) GetImage(id int) (*QrcodeItem, error) {
 	query := `SELECT id, image FROM qrcode WHERE id = ?`
 	var qrcodeItem QrcodeItem
