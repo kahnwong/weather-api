@@ -27,6 +27,6 @@ func GetPngController(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).SendString(fmt.Sprintf("Image '%s' not found or could not be read.", filePath))
 	}
 
-	c.Set(fiber.HeaderContentType, "img/png")
+	c.Type("png")
 	return c.Send(imageData)
 }
