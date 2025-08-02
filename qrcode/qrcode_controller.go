@@ -1,13 +1,10 @@
 package qrcode
 
 import (
-	"bytes"
 	"encoding/base64"
-	"image/png"
 	"os"
 	"strconv"
 
-	"github.com/nfnt/resize"
 	"github.com/rs/zerolog/log"
 
 	"github.com/gofiber/fiber/v2"
@@ -70,7 +67,11 @@ func AddPostController(c *fiber.Ctx) error {
 		log.Error().Err(err).Msg("Error decoding base64 image")
 	}
 
-	imageResizedBytes, _ := pngResize(imageBytes)
+	//// image processing
+	imageGrayScaleBytes, _ := pngToGrayScale(imageBytes)
+	imageCropBorderBytes, _ := pngCropBorder(imageGrayScaleBytes)
+	//// -- resize to 90x90 so garmin doesn't choke
+	imageResizedBytes, _ := pngResize(imageCropBorderBytes)
 
 	//// insert to db
 	err = Qrcode.Add(QrcodeItem{
@@ -84,23 +85,6 @@ func AddPostController(c *fiber.Ctx) error {
 
 	c.Status(fiber.StatusOK)
 	return c.SendString("Success")
-}
-
-func pngResize(imageBytes []byte) ([]byte, error) {
-	//// resize to 90x90 so garmin doesn't choke
-	img, err := png.Decode(bytes.NewReader(imageBytes))
-	if err != nil {
-		log.Error().Err(err).Msg("failed to decode PNG image")
-	}
-	resizedImg := resize.Resize(90, 90, img, resize.Lanczos3)
-
-	//// encode back to bytes
-	var buf bytes.Buffer
-	err = png.Encode(&buf, resizedImg)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to encode resized PNG image")
-	}
-	return buf.Bytes(), err
 }
 
 func _stringToInt(s string) int {
