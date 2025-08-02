@@ -65,12 +65,28 @@ func AddPostController(c *fiber.Ctx) error {
 	}
 
 	// insert
-	//// Decode the Base64 string to a byte slice
 	imageBytes, err := base64.StdEncoding.DecodeString(p.Image)
 	if err != nil {
 		log.Error().Err(err).Msg("Error decoding base64 image")
 	}
 
+	imageResizedBytes, _ := pngResize(imageBytes)
+
+	//// insert to db
+	err = Qrcode.Add(QrcodeItem{
+		ID:    p.ID,
+		Name:  p.Name,
+		Image: imageResizedBytes,
+	})
+	if err != nil {
+		log.Printf("Error adding image: %v", err)
+	}
+
+	c.Status(fiber.StatusOK)
+	return c.SendString("Success")
+}
+
+func pngResize(imageBytes []byte) ([]byte, error) {
 	//// resize to 90x90 so garmin doesn't choke
 	img, err := png.Decode(bytes.NewReader(imageBytes))
 	if err != nil {
@@ -84,19 +100,7 @@ func AddPostController(c *fiber.Ctx) error {
 	if err != nil {
 		log.Error().Err(err).Msg("failed to encode resized PNG image")
 	}
-
-	//// insert to db
-	err = Qrcode.Add(QrcodeItem{
-		ID:    p.ID,
-		Name:  p.Name,
-		Image: buf.Bytes(),
-	})
-	if err != nil {
-		log.Printf("Error adding image: %v", err)
-	}
-
-	c.Status(fiber.StatusOK)
-	return c.SendString("Success")
+	return buf.Bytes(), err
 }
 
 func _stringToInt(s string) int {
