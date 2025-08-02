@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"image/png"
 	"os"
+	"strconv"
 
 	"github.com/nfnt/resize"
 	"github.com/rs/zerolog/log"
@@ -27,7 +28,7 @@ type QrcodeRequestItem struct {
 }
 
 func TitleGetController(c *fiber.Ctx) error {
-	qrcode, err := Qrcode.GetTitle(1)
+	qrcode, err := Qrcode.GetTitle(_stringToInt(c.Params("id")))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).SendString("Error obtaining qrcode data")
 	}
@@ -38,7 +39,7 @@ func TitleGetController(c *fiber.Ctx) error {
 }
 
 func PngGetController(c *fiber.Ctx) error {
-	qrcode, err := Qrcode.GetImage(1)
+	qrcode, err := Qrcode.GetImage(_stringToInt(c.Params("id")))
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).SendString("Error obtaining qrcode data")
 	}
@@ -96,4 +97,13 @@ func AddPostController(c *fiber.Ctx) error {
 
 	c.Status(fiber.StatusOK)
 	return c.SendString("Success")
+}
+
+func _stringToInt(s string) int {
+	id, err := strconv.Atoi(s)
+	if err != nil {
+		log.Error().Err(err).Msgf("Error converting to int: %s", s)
+	}
+
+	return id
 }

@@ -1,6 +1,6 @@
-add:
+add-post:
 	./scripts/add.sh
-get-title:
+title-get:
 	hurl hurl/title-get.hurl
-get-png:
-	hurl hurl/png-get.hurl --output tmp/qrcode.png
+image-get:
+	hurl hurl/image-get.hurl --output tmp/qrcode.png

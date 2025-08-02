@@ -63,8 +63,8 @@ func main() {
 	}))
 
 	// routes
-	app.Get("/title", qrcode.TitleGetController)
-	app.Get("/images/qrcode.png:apiKey?", qrcode.PngGetController)
+	app.Get("/title/:id", qrcode.TitleGetController)
+	app.Get("/image/:id:apiKey?", qrcode.PngGetController)
 	app.Post("/add", qrcode.AddPostController)
 
 	// start server
