@@ -1,16 +1,14 @@
-# qrcode-api
+# precipitation-api
 
-So I don't have to fish out my phone to scan event entry qrcode.
-
+Because I want to check the weather real quick before heading out. To be used with a garmin watch.
 
 ## Usage
 
 ```bash
-docker build -t qrcode-api .
+docker build -t precipitation-api .
 docker run \
   -p 3000:3000 \
   --env-file .env \
-  -v $(pwd)/data:/data \
   -e LISTEN_ADDR=:3000 \
-  qrcode-api
+  precipitationgs-api
 ```

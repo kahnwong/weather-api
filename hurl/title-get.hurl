@@ -1,2 +1,2 @@
-GET http://localhost:3000/title/1
+GET http://localhost:3000/precipitation
 X-Api-Key: {{QRCODE_API_KEY}}
