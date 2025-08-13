@@ -7,7 +7,7 @@ require (
 	github.com/gofiber/contrib/fiberzerolog v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.9
 	github.com/rs/zerolog v1.34.0
-	golang.org/x/text v0.27.0
+	golang.org/x/text v0.28.0
 )
 
 require (
