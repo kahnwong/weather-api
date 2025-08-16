@@ -1,17 +1,13 @@
 package main
 
 import (
-	"fmt"
+	"github.com/jdotcurs/pirateweather-go/pkg/pirateweather"
+	"github.com/rs/zerolog/log"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/rs/zerolog/log"
-
-	owm "github.com/briandowns/openweathermap"
 	"github.com/gofiber/fiber/v2"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
 
 var (
@@ -22,43 +18,26 @@ var (
 
 type WeatherResponse struct {
 	Description   string  `json:"description"`
-	Temperature   float32 `json:"temperature"`
+	Temperature   float64 `json:"temperature"`
 	RainOneHour   float64 `json:"rain_one_hour"`
 	RainThreeHour float64 `json:"rain_three_hour"`
 }
 
 func WeatherGetController(c *fiber.Ctx) error {
-	w, err := owm.NewCurrent("C", "en", os.Getenv("OPENWEATHER_API_KEY"))
+	client := pirateweather.NewClient(os.Getenv("PIRATEWEATHER_API_KEY"))
+	forecast, err := client.Forecast(Latitude, Longitude,
+		pirateweather.WithUnits("si"),
+		pirateweather.WithExclude([]string{"minutely"}),
+	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to init OpenWeatherMap")
+		log.Fatal().Err(err).Msg("Error getting forecast")
 	}
 
-	// prioritize lat/lng over city name
-	if Latitude != 0 {
-		log.Info().Msg("Using latitude/longitude for location")
-		err = w.CurrentByCoordinates(&owm.Coordinates{
-			Longitude: Longitude,
-			Latitude:  Latitude,
-		})
-	} else {
-		log.Info().Msg("Using city name for location")
-		err = w.CurrentByName(CityName)
-	}
-
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Cannot obtain weather data",
-		})
-	}
-
-	fmt.Println()
-
-	caser := cases.Title(language.English)
 	return c.JSON(WeatherResponse{
-		Description:   caser.String(w.Weather[0].Description),
-		Temperature:   float32(w.Main.Temp),
-		RainOneHour:   w.Rain.OneH,
-		RainThreeHour: w.Rain.ThreeH,
+		Description:   forecast.Currently.Summary,
+		Temperature:   forecast.Currently.Temperature,
+		RainOneHour:   forecast.Hourly.Data[1].PrecipProbability * 100,
+		RainThreeHour: forecast.Hourly.Data[3].PrecipProbability * 100,
 	})
 }
 

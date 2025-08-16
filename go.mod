@@ -3,11 +3,10 @@ module github.com/kahnwong/weather-api
 go 1.24.3
 
 require (
-	github.com/briandowns/openweathermap v0.21.1
 	github.com/gofiber/contrib/fiberzerolog v1.0.3
 	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/jdotcurs/pirateweather-go v0.1.1
 	github.com/rs/zerolog v1.34.0
-	golang.org/x/text v0.28.0
 )
 
 require (
