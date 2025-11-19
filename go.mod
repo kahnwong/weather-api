@@ -4,7 +4,7 @@ go 1.25.3
 
 require (
 	github.com/gofiber/contrib/fiberzerolog v1.0.3
-	github.com/gofiber/fiber/v2 v2.52.9
+	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/jdotcurs/pirateweather-go v0.1.1
 	github.com/rs/zerolog v1.34.0
 )
