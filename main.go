@@ -3,69 +3,64 @@ package main
 import (
 	"crypto/sha256"
 	"crypto/subtle"
-	"fmt"
+	"net/http"
 	"os"
-	"regexp"
-	"strings"
 
-	"github.com/gofiber/contrib/fiberzerolog"
+	"github.com/gin-contrib/logger"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/keyauth"
+	"github.com/rs/zerolog/log"
 )
 
-var (
-	apiKey        = os.Getenv("WEATHER_API_KEY")
-	protectedURLs = []*regexp.Regexp{
-		regexp.MustCompile("^/weather$"),
-	}
-)
+var apiKey = os.Getenv("WEATHER_API_KEY")
 
-func validateAPIKey(c *fiber.Ctx, key string) (bool, error) {
+func validateAPIKey(key string) bool {
 	hashedAPIKey := sha256.Sum256([]byte(apiKey))
 	hashedKey := sha256.Sum256([]byte(key))
 
-	if subtle.ConstantTimeCompare(hashedAPIKey[:], hashedKey[:]) == 1 {
-		return true, nil
-	}
-	return false, keyauth.ErrMissingOrMalformedAPIKey
+	return subtle.ConstantTimeCompare(hashedAPIKey[:], hashedKey[:]) == 1
 }
 
-func authFilter(c *fiber.Ctx) bool {
-	originalURL := strings.ToLower(c.OriginalURL())
-
-	for _, pattern := range protectedURLs {
-		if pattern.MatchString(originalURL) {
-			return false
+func apiKeyAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		key := c.GetHeader("X-API-Key")
+		if key == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing or malformed API key"})
+			c.Abort()
+			return
 		}
+
+		if !validateAPIKey(key) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
 	}
-	return true
 }
 
 func main() {
 	// init
-	app := fiber.New()
+	gin.SetMode(gin.ReleaseMode)
+	router := gin.New()
 
+	// logging
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
-	app.Use(fiberzerolog.New(fiberzerolog.Config{
-		Logger: &logger,
-	}))
-
-	// auth
-	app.Use(keyauth.New(keyauth.Config{
-		Next:      authFilter,
-		KeyLookup: "header:X-API-Key",
-		Validator: validateAPIKey,
-	}))
+	router.Use(logger.SetLogger())
+	router.Use(gin.Recovery())
 
 	// routes
-	app.Get("/weather", WeatherGetController)
+	router.GET("/weather", apiKeyAuthMiddleware(), WeatherGetController)
 
 	// start server
-	err := app.Listen(os.Getenv("LISTEN_ADDR"))
-	if err != nil {
-		fmt.Println("Error starting server", err)
+	listenAddr := os.Getenv("LISTEN_ADDR")
+	if listenAddr == "" {
+		listenAddr = ":8080"
+	}
+
+	log.Info().Str("address", listenAddr).Msg("Starting server")
+	if err := router.Run(listenAddr); err != nil {
+		log.Fatal().Err(err).Msg("Error starting server")
 	}
 }

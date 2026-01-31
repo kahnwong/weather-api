@@ -1,13 +1,15 @@
 package main
 
 import (
-	"github.com/jdotcurs/pirateweather-go/pkg/pirateweather"
-	"github.com/rs/zerolog/log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/jdotcurs/pirateweather-go/pkg/pirateweather"
+	"github.com/rs/zerolog/log"
+
+	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -23,17 +25,19 @@ type WeatherResponse struct {
 	RainThreeHour float64 `json:"rain_three_hour"`
 }
 
-func WeatherGetController(c *fiber.Ctx) error {
+func WeatherGetController(c *gin.Context) {
 	client := pirateweather.NewClient(os.Getenv("PIRATEWEATHER_API_KEY"))
 	forecast, err := client.Forecast(Latitude, Longitude,
 		pirateweather.WithUnits("si"),
 		pirateweather.WithExclude([]string{"minutely"}),
 	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Error getting forecast")
+		log.Error().Err(err).Msg("Error getting forecast")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get forecast"})
+		return
 	}
 
-	return c.JSON(WeatherResponse{
+	c.JSON(http.StatusOK, WeatherResponse{
 		Description:   forecast.Currently.Summary,
 		Temperature:   forecast.Currently.Temperature,
 		RainOneHour:   forecast.Hourly.Data[1].PrecipProbability * 100,
