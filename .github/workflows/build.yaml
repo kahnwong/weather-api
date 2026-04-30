@@ -48,10 +48,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
-      - name: Scan image
-        uses: anchore/scan-action@v7
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
       - name: Attest
         uses: actions/attest-build-provenance@v4
         id: attest
