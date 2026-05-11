@@ -1,6 +1,6 @@
 module github.com/kahnwong/weather-api
 
-go 1.26.2
+go 1.26.3
 
 require (
 	github.com/gin-contrib/logger v1.2.7
