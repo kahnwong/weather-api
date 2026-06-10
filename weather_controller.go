@@ -1,13 +1,13 @@
 package main
 
 import (
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/jdotcurs/pirateweather-go/pkg/pirateweather"
-	"github.com/rs/zerolog/log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -32,7 +32,7 @@ func WeatherGetController(c *gin.Context) {
 		pirateweather.WithExclude([]string{"minutely"}),
 	)
 	if err != nil {
-		log.Error().Err(err).Msg("Error getting forecast")
+		slog.Error("Error getting forecast", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get forecast"})
 		return
 	}
@@ -54,18 +54,18 @@ func stringToFloat(s string) (float64, error) {
 	}
 }
 
-func init() {
+func initWeatherConfig() {
 	var err error
 
 	CityName = os.Getenv("CURRENT_CITY")
 	Latitude, err = stringToFloat(os.Getenv("LATITUDE"))
 	if err != nil {
-		log.Warn().Msg("Error converting latitude to float")
+		slog.Warn("Error converting latitude to float", "error", err)
 		Latitude = 0
 	}
 	Longitude, err = stringToFloat(os.Getenv("LONGITUDE"))
 	if err != nil {
-		log.Warn().Msg("Error converting longitude to float")
+		slog.Warn("Error converting longitude to float", "error", err)
 		Longitude = 0
 	}
 }

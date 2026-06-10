@@ -3,13 +3,15 @@ package main
 import (
 	"crypto/sha256"
 	"crypto/subtle"
+	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gin-contrib/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	slogzerolog "github.com/samber/slog-zerolog/v2"
 )
 
 var apiKey = os.Getenv("WEATHER_API_KEY")
@@ -40,13 +42,27 @@ func apiKeyAuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+func setupLogger() {
+	level, err := zerolog.ParseLevel(strings.ToLower(os.Getenv("LOG_LEVEL")))
+	if err != nil || level == zerolog.NoLevel {
+		level = zerolog.InfoLevel
+	}
+
+	zerolog.SetGlobalLevel(level)
+	output := zerolog.ConsoleWriter{Out: os.Stderr}
+	logger := zerolog.New(output).Level(level).With().Timestamp().Logger()
+	slog.SetDefault(slog.New(slogzerolog.Option{Logger: &logger}.NewZerologHandler()))
+}
+
 func main() {
 	// init
 	gin.SetMode(gin.ReleaseMode)
+	setupLogger()
+	initWeatherConfig()
+
 	router := gin.New()
 
 	// logging
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 	router.Use(logger.SetLogger())
 	router.Use(gin.Recovery())
 
@@ -59,8 +75,9 @@ func main() {
 		listenAddr = ":8080"
 	}
 
-	log.Info().Str("address", listenAddr).Msg("Starting server")
+	slog.Info("Starting server", "address", listenAddr)
 	if err := router.Run(listenAddr); err != nil {
-		log.Fatal().Err(err).Msg("Error starting server")
+		slog.Error("Error starting server", "error", err)
+		os.Exit(1)
 	}
 }
