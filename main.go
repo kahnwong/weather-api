@@ -62,9 +62,10 @@ func main() {
 
 	router := gin.New()
 
-	// logging
+	// middleware
 	router.Use(logger.SetLogger())
 	router.Use(gin.Recovery())
+	router.Use(rateLimitMiddlewareFromEnv())
 
 	// routes
 	router.GET("/weather", apiKeyAuthMiddleware(), WeatherGetController)
