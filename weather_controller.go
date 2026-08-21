@@ -26,10 +26,10 @@ var (
 )
 
 type WeatherResponse struct {
-	Description   string  `json:"description"`
-	Temperature   float64 `json:"temperature"`
-	RainOneHour   float64 `json:"rain_one_hour"`
-	RainThreeHour float64 `json:"rain_three_hour"`
+	Description string  `json:"description"`
+	Temperature float64 `json:"temperature"`
+	RainStart   *string `json:"rain_start"`
+	RainStop    *string `json:"rain_stop"`
 }
 
 type openMeteoResponse struct {
@@ -69,7 +69,7 @@ func fetchOpenMeteoForecast(ctx context.Context, client *http.Client, endpoint s
 	query.Set("models", "ecmwf_ifs")
 	query.Set("current", "temperature_2m,weather_code")
 	query.Set("hourly", "precipitation_probability")
-	query.Set("forecast_hours", "4")
+	query.Set("forecast_hours", "24")
 	requestURL.RawQuery = query.Encode()
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
@@ -94,18 +94,46 @@ func fetchOpenMeteoForecast(ctx context.Context, client *http.Client, endpoint s
 	if forecast.Current.Temperature == nil || forecast.Current.WeatherCode == nil {
 		return WeatherResponse{}, fmt.Errorf("Open-Meteo response is missing current conditions")
 	}
-	if len(forecast.Hourly.PrecipitationProbability) < 4 ||
-		forecast.Hourly.PrecipitationProbability[1] == nil ||
-		forecast.Hourly.PrecipitationProbability[3] == nil {
+	if len(forecast.Hourly.PrecipitationProbability) == 0 {
 		return WeatherResponse{}, fmt.Errorf("Open-Meteo response is missing hourly precipitation probabilities")
 	}
+	for _, probability := range forecast.Hourly.PrecipitationProbability {
+		if probability == nil {
+			return WeatherResponse{}, fmt.Errorf("Open-Meteo response is missing hourly precipitation probabilities")
+		}
+	}
+	rainStart, rainStop := rainTimes(forecast.Hourly.PrecipitationProbability)
 
 	return WeatherResponse{
-		Description:   weatherDescription(*forecast.Current.WeatherCode),
-		Temperature:   *forecast.Current.Temperature,
-		RainOneHour:   *forecast.Hourly.PrecipitationProbability[1],
-		RainThreeHour: *forecast.Hourly.PrecipitationProbability[3],
+		Description: weatherDescription(*forecast.Current.WeatherCode),
+		Temperature: *forecast.Current.Temperature,
+		RainStart:   rainStart,
+		RainStop:    rainStop,
 	}, nil
+}
+
+func rainTimes(probabilities []*float64) (*string, *string) {
+	var start, stop *string
+	for hour, probability := range probabilities {
+		raining := *probability > 50
+		if start == nil && raining {
+			value := relativeHour(hour)
+			start = &value
+		}
+		if start != nil && !raining {
+			value := relativeHour(hour)
+			stop = &value
+			break
+		}
+	}
+	return start, stop
+}
+
+func relativeHour(hour int) string {
+	if hour == 0 {
+		return "now"
+	}
+	return strconv.Itoa(hour) + "h"
 }
 
 func weatherDescription(code int) string {

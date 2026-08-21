@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -20,7 +21,7 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"current":{"temperature_2m":32.8,"weather_code":2},
-			"hourly":{"precipitation_probability":[16,12,8,6]}
+			"hourly":{"precipitation_probability":[16,60,70,80,90,20]}
 		}`))
 	}))
 	defer upstream.Close()
@@ -48,7 +49,7 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 		"models":         "ecmwf_ifs",
 		"current":        "temperature_2m,weather_code",
 		"hourly":         "precipitation_probability",
-		"forecast_hours": "4",
+		"forecast_hours": "24",
 	}
 	for key, want := range wantQuery {
 		if got := receivedQuery.Get(key); got != want {
@@ -60,13 +61,14 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
+	rainStart, rainStop := "1h", "5h"
 	want := WeatherResponse{
-		Description:   "Partly Cloudy",
-		Temperature:   32.8,
-		RainOneHour:   12,
-		RainThreeHour: 6,
+		Description: "Partly Cloudy",
+		Temperature: 32.8,
+		RainStart:   &rainStart,
+		RainStop:    &rainStop,
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("response = %+v, want %+v", got, want)
 	}
 
@@ -74,7 +76,7 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &fields); err != nil {
 		t.Fatalf("decode response fields: %v", err)
 	}
-	for _, key := range []string{"description", "temperature", "rain_one_hour", "rain_three_hour"} {
+	for _, key := range []string{"description", "temperature", "rain_start", "rain_stop"} {
 		if _, ok := fields[key]; !ok {
 			t.Errorf("response is missing field %q", key)
 		}
@@ -101,9 +103,9 @@ func TestWeatherGetControllerHandlesUpstreamErrors(t *testing.T) {
 			status: http.StatusOK,
 			body:   `{"hourly":{"precipitation_probability":[1,2,3,4]}}`,
 		},
-		"short hourly forecast": {
+		"missing hourly forecast": {
 			status: http.StatusOK,
-			body:   `{"current":{"temperature_2m":20,"weather_code":0},"hourly":{"precipitation_probability":[1,2]}}`,
+			body:   `{"current":{"temperature_2m":20,"weather_code":0},"hourly":{"precipitation_probability":[]}}`,
 		},
 	}
 
