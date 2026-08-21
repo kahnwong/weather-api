@@ -5,7 +5,6 @@ go 1.27.0
 require (
 	github.com/gin-contrib/logger v1.2.7
 	github.com/gin-gonic/gin v1.12.0
-	github.com/jdotcurs/pirateweather-go v0.1.1
 	github.com/rs/zerolog v1.35.1
 	github.com/samber/slog-zerolog/v2 v2.9.2
 )
