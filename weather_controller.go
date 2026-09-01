@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v3"
 )
 
 const openMeteoForecastURL = "https://api.open-meteo.com/v1/forecast"
@@ -42,19 +42,18 @@ type openMeteoResponse struct {
 	} `json:"hourly"`
 }
 
-func WeatherGetController(c *gin.Context) {
-	weatherGetController(c, weatherHTTPClient, openMeteoForecastURL)
+func WeatherGetController(c fiber.Ctx) error {
+	return weatherGetController(c, weatherHTTPClient, openMeteoForecastURL)
 }
 
-func weatherGetController(c *gin.Context, client *http.Client, endpoint string) {
-	forecast, err := fetchOpenMeteoForecast(c.Request.Context(), client, endpoint, Latitude, Longitude)
+func weatherGetController(c fiber.Ctx, client *http.Client, endpoint string) error {
+	forecast, err := fetchOpenMeteoForecast(c.RequestCtx(), client, endpoint, Latitude, Longitude)
 	if err != nil {
 		slog.Error("Error getting forecast", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get forecast"})
-		return
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to get forecast"})
 	}
 
-	c.JSON(http.StatusOK, forecast)
+	return c.Status(fiber.StatusOK).JSON(forecast)
 }
 
 func fetchOpenMeteoForecast(ctx context.Context, client *http.Client, endpoint string, latitude, longitude float64) (WeatherResponse, error) {

@@ -4,13 +4,13 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"log/slog"
-	"net/http"
 	"os"
 	"strings"
 
-	"github.com/gin-contrib/logger"
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/recover"
 	"github.com/rs/zerolog"
+	slogfiber "github.com/samber/slog-fiber"
 	slogzerolog "github.com/samber/slog-zerolog/v2"
 )
 
@@ -23,52 +23,52 @@ func validateAPIKey(key string) bool {
 	return subtle.ConstantTimeCompare(hashedAPIKey[:], hashedKey[:]) == 1
 }
 
-func apiKeyAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		key := c.GetHeader("X-API-Key")
+func apiKeyAuthMiddleware() fiber.Handler {
+	return func(c fiber.Ctx) error {
+		key := c.Get("X-API-Key")
 		if key == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing or malformed API key"})
-			c.Abort()
-			return
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing or malformed API key"})
 		}
 
 		if !validateAPIKey(key) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid API key"})
-			c.Abort()
-			return
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid API key"})
 		}
 
-		c.Next()
+		return c.Next()
 	}
 }
 
-func setupLogger() {
+func setupLogger() *slog.Logger {
 	level, err := zerolog.ParseLevel(strings.ToLower(os.Getenv("LOG_LEVEL")))
 	if err != nil || level == zerolog.NoLevel {
-		level = zerolog.InfoLevel
+		level = zerolog.DebugLevel
 	}
 
 	zerolog.SetGlobalLevel(level)
 	output := zerolog.ConsoleWriter{Out: os.Stderr}
-	logger := zerolog.New(output).Level(level).With().Timestamp().Logger()
-	slog.SetDefault(slog.New(slogzerolog.Option{Logger: &logger}.NewZerologHandler()))
+	zeroLogger := zerolog.New(output).Level(level).With().Timestamp().Logger()
+	logger := slog.New(slogzerolog.Option{
+		Level:  slogzerolog.ZeroLogLeveler{Logger: &zeroLogger},
+		Logger: &zeroLogger,
+	}.NewZerologHandler())
+	slog.SetDefault(logger)
+	return logger
 }
 
 func main() {
 	// init
-	gin.SetMode(gin.ReleaseMode)
-	setupLogger()
+	logger := setupLogger()
 	initWeatherConfig()
 
-	router := gin.New()
+	app := fiber.New()
 
 	// middleware
-	router.Use(logger.SetLogger())
-	router.Use(gin.Recovery())
-	router.Use(rateLimitMiddlewareFromEnv())
+	app.Use(slogfiber.New(logger))
+	app.Use(recover.New())
+	app.Use(rateLimitMiddlewareFromEnv())
 
 	// routes
-	router.GET("/weather", apiKeyAuthMiddleware(), WeatherGetController)
+	app.Get("/weather", apiKeyAuthMiddleware(), WeatherGetController)
 
 	// start server
 	listenAddr := os.Getenv("LISTEN_ADDR")
@@ -77,7 +77,7 @@ func main() {
 	}
 
 	slog.Info("Starting server", "address", listenAddr)
-	if err := router.Run(listenAddr); err != nil {
+	if err := app.Listen(listenAddr, fiber.ListenConfig{DisableStartupMessage: true}); err != nil {
 		slog.Error("Error starting server", "error", err)
 		os.Exit(1)
 	}

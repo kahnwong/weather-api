@@ -1,12 +1,13 @@
 package main
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v3"
 )
 
 func TestRateLimiterAllowRefillsTokens(t *testing.T) {
@@ -28,26 +29,37 @@ func TestRateLimiterAllowRefillsTokens(t *testing.T) {
 }
 
 func TestRateLimitMiddlewareReturnsTooManyRequests(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	router := gin.New()
-	router.Use(rateLimitMiddleware(1, 1))
-	router.GET("/", func(c *gin.Context) {
-		c.Status(http.StatusOK)
+	app := fiber.New()
+	app.Use(rateLimitMiddleware(1, 1))
+	app.Get("/", func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusOK)
 	})
 
-	first := httptest.NewRecorder()
-	router.ServeHTTP(first, httptest.NewRequest(http.MethodGet, "/", nil))
-	if first.Code != http.StatusOK {
-		t.Fatalf("first response status = %d, want %d", first.Code, http.StatusOK)
+	first, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
+	if err != nil {
+		t.Fatalf("perform first request: %v", err)
+	}
+	defer first.Body.Close()
+	if first.StatusCode != http.StatusOK {
+		t.Fatalf("first response status = %d, want %d", first.StatusCode, http.StatusOK)
 	}
 
-	second := httptest.NewRecorder()
-	router.ServeHTTP(second, httptest.NewRequest(http.MethodGet, "/", nil))
-	if second.Code != http.StatusTooManyRequests {
-		t.Fatalf("second response status = %d, want %d", second.Code, http.StatusTooManyRequests)
+	second, err := app.Test(httptest.NewRequest(http.MethodGet, "/", nil))
+	if err != nil {
+		t.Fatalf("perform second request: %v", err)
 	}
-	if got := second.Header().Get("Retry-After"); got == "" {
+	defer second.Body.Close()
+	if second.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("second response status = %d, want %d", second.StatusCode, http.StatusTooManyRequests)
+	}
+	if got := second.Header.Get("Retry-After"); got == "" {
 		t.Fatal("Retry-After header should be set")
+	}
+	body, err := io.ReadAll(second.Body)
+	if err != nil {
+		t.Fatalf("read second response: %v", err)
+	}
+	if got := string(body); got != `{"error":"Rate limit exceeded"}` {
+		t.Fatalf("second response body = %s", got)
 	}
 }

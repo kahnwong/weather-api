@@ -2,13 +2,12 @@ package main
 
 import (
 	"math"
-	"net/http"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v3"
 )
 
 const (
@@ -86,24 +85,22 @@ func (l *rateLimiter) cleanup(now time.Time) {
 	l.lastCleanup = now
 }
 
-func rateLimitMiddleware(requestsPerMinute, burst int) gin.HandlerFunc {
+func rateLimitMiddleware(requestsPerMinute, burst int) fiber.Handler {
 	limiter := newRateLimiter(requestsPerMinute, burst)
 
-	return func(c *gin.Context) {
-		allowed, retryAfter := limiter.allow(c.ClientIP(), time.Now())
+	return func(c fiber.Ctx) error {
+		allowed, retryAfter := limiter.allow(c.IP(), time.Now())
 		if !allowed {
 			seconds := int(math.Ceil(retryAfter.Seconds()))
-			c.Header("Retry-After", strconv.Itoa(seconds))
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
-			c.Abort()
-			return
+			c.Set("Retry-After", strconv.Itoa(seconds))
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"error": "Rate limit exceeded"})
 		}
 
-		c.Next()
+		return c.Next()
 	}
 }
 
-func rateLimitMiddlewareFromEnv() gin.HandlerFunc {
+func rateLimitMiddlewareFromEnv() fiber.Handler {
 	requestsPerMinute := envInt("RATE_LIMIT_REQUESTS_PER_MINUTE", defaultRateLimitRequestsPerMinute)
 	burst := envInt("RATE_LIMIT_BURST", defaultRateLimitBurst)
 	return rateLimitMiddleware(requestsPerMinute, burst)

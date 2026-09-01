@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,12 +10,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/gin-gonic/gin"
+	"github.com/gofiber/fiber/v3"
 )
 
 func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
 	var receivedQuery url.Values
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedQuery = r.URL.Query()
@@ -32,15 +31,23 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 		Latitude, Longitude = previousLatitude, previousLongitude
 	})
 
+	app := fiber.New()
+	app.Get("/weather", func(c fiber.Ctx) error {
+		return weatherGetController(c, upstream.Client(), upstream.URL)
+	})
 	request := httptest.NewRequest(http.MethodGet, "/weather", nil)
-	response := httptest.NewRecorder()
-	context, _ := gin.CreateTestContext(response)
-	context.Request = request
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("perform request: %v", err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatalf("read response: %v", err)
+	}
 
-	weatherGetController(context, upstream.Client(), upstream.URL)
-
-	if response.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d; body = %s", response.Code, http.StatusOK, response.Body.String())
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %s", response.StatusCode, http.StatusOK, body)
 	}
 
 	wantQuery := map[string]string{
@@ -58,7 +65,7 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 	}
 
 	var got WeatherResponse
-	if err := json.Unmarshal(response.Body.Bytes(), &got); err != nil {
+	if err := json.Unmarshal(body, &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
 	rainStart, rainStop := "1h", "5h"
@@ -73,7 +80,7 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 	}
 
 	var fields map[string]any
-	if err := json.Unmarshal(response.Body.Bytes(), &fields); err != nil {
+	if err := json.Unmarshal(body, &fields); err != nil {
 		t.Fatalf("decode response fields: %v", err)
 	}
 	for _, key := range []string{"description", "temperature", "rain_start", "rain_stop"} {
@@ -111,23 +118,30 @@ func TestWeatherGetControllerHandlesUpstreamErrors(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gin.SetMode(gin.TestMode)
 			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(test.status)
 				_, _ = w.Write([]byte(test.body))
 			}))
 			defer upstream.Close()
 
-			response := httptest.NewRecorder()
-			context, _ := gin.CreateTestContext(response)
-			context.Request = httptest.NewRequest(http.MethodGet, "/weather", nil)
-
-			weatherGetController(context, upstream.Client(), upstream.URL)
-
-			if response.Code != http.StatusInternalServerError {
-				t.Errorf("status = %d, want %d", response.Code, http.StatusInternalServerError)
+			app := fiber.New()
+			app.Get("/weather", func(c fiber.Ctx) error {
+				return weatherGetController(c, upstream.Client(), upstream.URL)
+			})
+			response, err := app.Test(httptest.NewRequest(http.MethodGet, "/weather", nil))
+			if err != nil {
+				t.Fatalf("perform request: %v", err)
 			}
-			if got := strings.TrimSpace(response.Body.String()); got != `{"error":"Failed to get forecast"}` {
+			defer response.Body.Close()
+			body, err := io.ReadAll(response.Body)
+			if err != nil {
+				t.Fatalf("read response: %v", err)
+			}
+
+			if response.StatusCode != http.StatusInternalServerError {
+				t.Errorf("status = %d, want %d", response.StatusCode, http.StatusInternalServerError)
+			}
+			if got := strings.TrimSpace(string(body)); got != `{"error":"Failed to get forecast"}` {
 				t.Errorf("body = %s", got)
 			}
 		})
