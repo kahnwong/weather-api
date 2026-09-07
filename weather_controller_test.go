@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 )
@@ -18,17 +19,23 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		receivedQuery = r.URL.Query()
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
-			"current":{"temperature_2m":32.8,"weather_code":2},
-			"hourly":{"precipitation_probability":[16,60,70,80,90,20]}
-		}`))
+		now := time.Now()
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"current": map[string]any{"temperature_2m": 32.8, "weather_code": 2},
+			"hourly": map[string]any{
+				"time":                      []int64{now.Add(30 * time.Minute).Unix(), now.Add(90 * time.Minute).Unix(), now.Add(150 * time.Minute).Unix()},
+				"rain":                      []float64{0.2, 0.1, 0},
+				"precipitation_probability": []int{60, 70, 80},
+			},
+		})
 	}))
 	defer upstream.Close()
 
-	previousLatitude, previousLongitude := Latitude, Longitude
+	previousLatitude, previousLongitude, previousTimezone := Latitude, Longitude, Timezone
 	Latitude, Longitude = 1.3521, 103.8198
+	Timezone = "Asia/Bangkok"
 	t.Cleanup(func() {
-		Latitude, Longitude = previousLatitude, previousLongitude
+		Latitude, Longitude, Timezone = previousLatitude, previousLongitude, previousTimezone
 	})
 
 	app := fiber.New()
@@ -55,8 +62,10 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 		"longitude":      "103.8198",
 		"models":         "ecmwf_ifs",
 		"current":        "temperature_2m,weather_code",
-		"hourly":         "precipitation_probability",
+		"hourly":         "rain,precipitation_probability",
 		"forecast_hours": "24",
+		"timeformat":     "unixtime",
+		"timezone":       Timezone,
 	}
 	for key, want := range wantQuery {
 		if got := receivedQuery.Get(key); got != want {
@@ -68,7 +77,7 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 	if err := json.Unmarshal(body, &got); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	rainStart, rainStop := "1h", "5h"
+	rainStart, rainStop := "now", "+2H"
 	want := WeatherResponse{
 		Description: "Partly Cloudy",
 		Temperature: 32.8,
@@ -94,6 +103,12 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 }
 
 func TestWeatherGetControllerHandlesUpstreamErrors(t *testing.T) {
+	previousTimezone := Timezone
+	Timezone = "UTC"
+	t.Cleanup(func() {
+		Timezone = previousTimezone
+	})
+
 	tests := map[string]struct {
 		status int
 		body   string
@@ -108,7 +123,7 @@ func TestWeatherGetControllerHandlesUpstreamErrors(t *testing.T) {
 		},
 		"missing current conditions": {
 			status: http.StatusOK,
-			body:   `{"hourly":{"precipitation_probability":[1,2,3,4]}}`,
+			body:   `{"hourly":{"time":[1],"rain":[0],"precipitation_probability":[1]}}`,
 		},
 		"missing hourly forecast": {
 			status: http.StatusOK,
@@ -145,6 +160,41 @@ func TestWeatherGetControllerHandlesUpstreamErrors(t *testing.T) {
 				t.Errorf("body = %s", got)
 			}
 		})
+	}
+}
+
+func TestRainTimesUsesRainAmountAndProbability(t *testing.T) {
+	now := time.Date(2026, time.September, 7, 16, 15, 0, 0, time.FixedZone("Asia/Bangkok", 7*60*60))
+	times := []int64{
+		now.Add(45 * time.Minute).Unix(),
+		now.Add(105 * time.Minute).Unix(),
+		now.Add(165 * time.Minute).Unix(),
+	}
+
+	start, stop := rainTimes(now, times, []float64{0.4, 0.1, 0}, []int{80, 60, 80})
+	if start == nil || *start != "now" {
+		t.Fatalf("start = %v, want now", start)
+	}
+	if stop == nil || *stop != "+2H" {
+		t.Fatalf("stop = %v, want +2H", stop)
+	}
+
+	start, stop = rainTimes(now, times, []float64{0, 0, 0}, []int{90, 90, 90})
+	if start != nil || stop != nil {
+		t.Fatalf("rain window with no rain = (%v, %v), want (nil, nil)", start, stop)
+	}
+}
+
+func TestRainTimesIgnoresRainBeyondHorizon(t *testing.T) {
+	now := time.Date(2026, time.September, 7, 16, 0, 0, 0, time.UTC)
+	start, stop := rainTimes(
+		now,
+		[]int64{now.Add(8 * time.Hour).Unix()},
+		[]float64{1},
+		[]int{90},
+	)
+	if start != nil || stop != nil {
+		t.Fatalf("rain window beyond horizon = (%v, %v), want (nil, nil)", start, stop)
 	}
 }
 
