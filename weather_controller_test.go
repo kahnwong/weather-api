@@ -24,7 +24,7 @@ func TestWeatherGetControllerUsesECMWFIFSAndPreservesResponse(t *testing.T) {
 			"current": map[string]any{"temperature_2m": 32.8, "weather_code": 2},
 			"hourly": map[string]any{
 				"time":                      []int64{now.Add(30 * time.Minute).Unix(), now.Add(90 * time.Minute).Unix(), now.Add(150 * time.Minute).Unix()},
-				"rain":                      []float64{0.2, 0.1, 0},
+				"rain":                      []float64{15, 1.1, 0.2},
 				"precipitation_probability": []int{60, 70, 80},
 			},
 		})
@@ -171,7 +171,7 @@ func TestRainTimesUsesRainAmountAndProbability(t *testing.T) {
 		now.Add(165 * time.Minute).Unix(),
 	}
 
-	start, stop := rainTimes(now, times, []float64{0.4, 0.1, 0}, []int{80, 60, 80})
+	start, stop := rainTimes(now, times, []float64{15, 1.1, 0.2}, []int{80, 60, 80})
 	if start == nil || *start != "now" {
 		t.Fatalf("start = %v, want now", start)
 	}
@@ -185,12 +185,44 @@ func TestRainTimesUsesRainAmountAndProbability(t *testing.T) {
 	}
 }
 
+func TestRainTimesRequiresBothThresholds(t *testing.T) {
+	now := time.Date(2026, time.September, 7, 16, 0, 0, 0, time.UTC)
+	times := []int64{now.Add(time.Hour).Unix(), now.Add(2 * time.Hour).Unix()}
+	tests := []struct {
+		name        string
+		rain        float64
+		probability int
+		wantRain    bool
+	}{
+		{name: "drizzle", rain: 0.2, probability: 60},
+		{name: "amount at threshold", rain: 1.0, probability: 90},
+		{name: "probability below threshold", rain: 15, probability: 40},
+		{name: "probability at threshold", rain: 15, probability: 50},
+		{name: "both above thresholds", rain: 1.1, probability: 51, wantRain: true},
+		{name: "downpour", rain: 15, probability: 60, wantRain: true},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			start, stop := rainTimes(now, times, []float64{test.rain, 0}, []int{test.probability, 90})
+			if !test.wantRain {
+				if start != nil || stop != nil {
+					t.Fatalf("rain window = (%v, %v), want (nil, nil)", start, stop)
+				}
+				return
+			}
+			if start == nil || *start != "now" || stop == nil || *stop != "+1H" {
+				t.Fatalf("rain window = (%v, %v), want (now, +1H)", start, stop)
+			}
+		})
+	}
+}
+
 func TestRainTimesIgnoresRainBeyondHorizon(t *testing.T) {
 	now := time.Date(2026, time.September, 7, 16, 0, 0, 0, time.UTC)
 	start, stop := rainTimes(
 		now,
 		[]int64{now.Add(8 * time.Hour).Unix()},
-		[]float64{1},
+		[]float64{15},
 		[]int{90},
 	)
 	if start != nil || stop != nil {

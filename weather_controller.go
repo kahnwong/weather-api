@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	openMeteoForecastURL  = "https://api.open-meteo.com/v1/forecast"
-	weatherRainThreshold  = 50
-	weatherRelativeCutoff = 4 * time.Hour
-	weatherRainHorizon    = 6 * time.Hour
+	openMeteoForecastURL       = "https://api.open-meteo.com/v1/forecast"
+	weatherRainThreshold       = 50
+	weatherRainAmountThreshold = 1.0 // Millimeters per hourly interval.
+	weatherRelativeCutoff      = 4 * time.Hour
+	weatherRainHorizon         = 6 * time.Hour
 )
 
 var weatherHTTPClient = &http.Client{Timeout: 10 * time.Second}
@@ -138,7 +139,7 @@ func findWeatherRainWindow(now time.Time, times []int64, rain []float64, probabi
 		if !intervalStop.After(now) {
 			continue
 		}
-		qualifies := rain[index] > 0 && probabilities[index] >= weatherRainThreshold
+		qualifies := rain[index] > weatherRainAmountThreshold && probabilities[index] > weatherRainThreshold
 		if !found {
 			if !qualifies {
 				continue
